@@ -1,0 +1,12 @@
+requests
+beautifulsoup4
+PyMuPDF
+google-generativeai
+python-dotenv
+schedule
+selenium
+webdriver-manager
+flask
+markdown
+openpyxl
+resend

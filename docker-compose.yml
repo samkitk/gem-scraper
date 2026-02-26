@@ -1,0 +1,24 @@
+services:
+  # ── Web Dashboard ──
+  web:
+    build: .
+    container_name: gem-web
+    restart: unless-stopped
+    ports:
+      - "5050:5050"
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python web.py
+
+  # ── Scraper Cron (runs pipeline + sends email digest) ──
+  cron:
+    build: .
+    container_name: gem-cron
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    command: python cron_runner.py

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tender.bid_number }} — GeM Scraper</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* ── Document Viewer ── */
+        .doc-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+        .doc-tab {
+            padding: 0.65rem 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .doc-tab:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+        .doc-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+        .doc-tab .tab-icon { font-size: 0.75rem; margin-right: 0.3rem; }
+        .doc-panel { display: none; }
+        .doc-panel.active { display: block; }
+
+        .pdf-frame {
+            width: 100%;
+            height: 750px;
+            border: none;
+            background: #161821;
+        }
+        .xlsx-preview {
+            padding: 1rem;
+            max-height: 700px;
+            overflow: auto;
+        }
+        .xlsx-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        .xlsx-table th {
+            background: rgba(108, 99, 255, 0.1);
+            color: var(--accent);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            border: 1px solid var(--border);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            position: sticky;
+            top: 0;
+        }
+        .xlsx-table td {
+            padding: 0.4rem 0.75rem;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .xlsx-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .doc-download-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1.25rem;
+            background: rgba(255,255,255,0.015);
+            border-bottom: 1px solid var(--border);
+        }
+        .doc-filename {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .doc-size {
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            margin-left: 0.5rem;
+        }
+
+        .sidebar-stack { display: flex; flex-direction: column; gap: 1rem; }
+
+        .detail-grid-docs {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        @media (max-width: 1100px) {
+            .detail-grid-docs { grid-template-columns: 1fr; }
+        }
+
+        .link-preview-notice {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        .link-preview-notice a {
+            display: inline-block;
+            margin-top: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <span class="logo">💎</span>
+            GeM Scraper
+        </a>
+        <div class="navbar-actions">
+            {% if has_pdf %}
+            <a href="/pdf/{{ bid_folder }}" target="_blank" class="btn btn-outline btn-sm">↗ Open PDF in new tab</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+
+        <!-- Header -->
+        <div class="detail-header">
+            <div>
+                <h1>{{ tender.bid_number }}</h1>
+                <div class="detail-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Department</span>
+                        <span class="meta-value">{{ tender.department or 'N/A' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Location</span>
+                        <span class="meta-value">{{ tender.location or 'Not specified' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Est. Value</span>
+                        <span class="meta-value" style="color: var(--green)">
+                            {{ tender.estimated_value if tender.estimated_value and tender.estimated_value != 'None' and tender.estimated_value != 'null' else 'Not specified' }}
+                        </span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">End Date</span>
+                        <span class="meta-value">{{ tender.end_date or 'N/A' }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Status</span>
+                        <span class="meta-value">
+                            {% if tender.processed %}
+                                <span class="badge badge-green">Processed</span>
+                            {% else %}
+                                <span class="badge badge-amber">Pending</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="detail-grid-docs">
+            <!-- Left: Document Viewer -->
+            <div class="panel">
+                <!-- Document Tabs -->
+                <div class="doc-tabs">
+                    <div class="doc-tab active" data-doc="summary">
+                        <span class="tab-icon">📝</span> Summary
+                    </div>
+                    {% if has_pdf %}
+                    <div class="doc-tab" data-doc="tender-pdf">
+                        <span class="tab-icon">📄</span> Tender PDF
+                    </div>
+                    {% endif %}
+                    {% for att in attachments %}
+                    <div class="doc-tab" data-doc="att-{{ loop.index }}">
+                        <span class="tab-icon">{% if att.is_pdf %}📋{% elif att.is_spreadsheet %}📊{% else %}📎{% endif %}</span>
+                        {% if att.is_pdf %}SOW {{ loop.index }}{% elif att.is_spreadsheet %}Sheet {{ loop.index }}{% else %}File {{ loop.index }}{% endif %}
+                    </div>
+                    {% endfor %}
+                    {# Also add tabs for external gem_document links that aren't downloaded #}
+                    {% for link in all_links %}
+                    <div class="doc-tab" data-doc="link-{{ loop.index }}">
+                        <span class="tab-icon">🔗</span> Link {{ loop.index }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Summary Panel -->
+                <div class="doc-panel active" id="panel-summary">
+                    <div class="panel-body summary-content">
+                        {% if summary_html %}
+                            {{ summary_html|safe }}
+                        {% else %}
+                            <div class="empty-state"><p>No summary generated yet.</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Tender PDF Panel -->
+                {% if has_pdf %}
+                <div class="doc-panel" id="panel-tender-pdf">
+                    <iframe src="/pdf/{{ bid_folder }}" class="pdf-frame" loading="lazy"></iframe>
+                </div>
+                {% endif %}
+
+                <!-- Attachment Panels -->
+                {% for att in attachments %}
+                <div class="doc-panel" id="panel-att-{{ loop.index }}">
+                    <div class="doc-download-row">
+                        <div>
+                            <span class="doc-filename">{{ att.name }}</span>
+                            <span class="doc-size">{{ "%.1f"|format(att.size / 1024) }} KB</span>
+                        </div>
+                        <a href="/attachment/{{ bid_folder }}/{{ att.name }}" target="_blank" class="btn btn-outline btn-sm">⬇ Download</a>
+                    </div>
+                    {% if att.is_pdf %}
+                        <iframe src="/attachment/{{ bid_folder }}/{{ att.name }}" class="pdf-frame" loading="lazy"></iframe>
+                    {% elif att.is_spreadsheet %}
+                        <div class="xlsx-preview" id="xlsx-{{ loop.index }}">
+                            <div style="text-align:center;padding:2rem;color:var(--text-dim)">Loading spreadsheet…</div>
+                        </div>
+                        <script>
+                            (function() {
+                                fetch('/preview/xlsx/{{ bid_folder }}/{{ att.name }}')
+                                    .then(r => r.text())
+                                    .then(html => { document.getElementById('xlsx-{{ loop.index }}').innerHTML = html; })
+                                    .catch(() => { document.getElementById('xlsx-{{ loop.index }}').innerHTML = '<p style="color:var(--red)">Failed to load</p>'; });
+                            })();
+                        </script>
+                    {% else %}
+                        <div class="link-preview-notice">
+                            <p>Preview not available for this file type</p>
+                            <a href="/attachment/{{ bid_folder }}/{{ att.name }}" target="_blank" class="btn btn-primary btn-sm">Download File</a>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                <!-- External Link Panels (preview via iframe or direct link) -->
+                {% for link in all_links %}
+                <div class="doc-panel" id="panel-link-{{ loop.index }}">
+                    <div class="doc-download-row">
+                        <div>
+                            <span class="doc-filename" title="{{ link.url }}">{{ link.url|truncate(80, True) }}</span>
+                            <span class="doc-size">
+                                {% if link.is_relevant %}<span class="badge badge-green" style="font-size:0.6rem;">RELEVANT</span>{% endif %}
+                                <span class="badge badge-blue" style="font-size:0.6rem;">{{ link.link_type or 'link' }}</span>
+                            </span>
+                        </div>
+                        <a href="{{ link.url }}" target="_blank" class="btn btn-outline btn-sm">↗ Open</a>
+                    </div>
+                    {% if link.url.endswith('.pdf') %}
+                        <iframe src="{{ link.url }}" class="pdf-frame" loading="lazy"></iframe>
+                    {% else %}
+                        <div class="link-preview-notice">
+                            <p style="margin-bottom:0.5rem">{{ link.link_text|truncate(200, True) if link.link_text else 'No description' }}</p>
+                            <p style="font-size:0.75rem;color:var(--text-dim);word-break:break-all;">{{ link.url }}</p>
+                            <a href="{{ link.url }}" target="_blank" class="btn btn-primary btn-sm">Open in New Tab</a>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Right Sidebar -->
+            <div class="sidebar-stack">
+                <!-- Documents Overview -->
+                <div class="panel">
+                    <div class="panel-header">📎 Documents ({{ attachments|length + (1 if has_pdf else 0) }})</div>
+                    <div class="panel-body" style="padding: 0.5rem 1rem;">
+                        {% if has_pdf %}
+                        <div class="attachment-item" style="cursor:pointer;" onclick="switchDoc('tender-pdf')">
+                            <div class="attachment-icon pdf">PDF</div>
+                            <div class="attachment-info">
+                                <div class="attachment-name">Tender Document</div>
+                                <div class="attachment-size">Main bid PDF</div>
+                            </div>
+                            <span style="color:var(--text-dim);font-size:0.75rem;">View →</span>
+                        </div>
+                        {% endif %}
+                        {% for att in attachments %}
+                        <div class="attachment-item" style="cursor:pointer;" onclick="switchDoc('att-{{ loop.index }}')">
+                            <div class="attachment-icon {% if att.is_pdf %}pdf{% elif att.is_spreadsheet %}xlsx{% else %}other{% endif %}">
+                                {{ att.ext.replace('.','').upper()[:4] if att.ext else 'FILE' }}
+                            </div>
+                            <div class="attachment-info">
+                                <div class="attachment-name" title="{{ att.name }}">
+                                    {% if att.is_pdf %}Scope of Work {{ loop.index }}{% elif att.is_spreadsheet %}Spreadsheet {{ loop.index }}{% else %}Attachment {{ loop.index }}{% endif %}
+                                </div>
+                                <div class="attachment-size">{{ "%.1f"|format(att.size / 1024) }} KB · {{ att.ext.replace('.','').upper() }}</div>
+                            </div>
+                            <span style="color:var(--text-dim);font-size:0.75rem;">View →</span>
+                        </div>
+                        {% endfor %}
+                        {% if not attachments and not has_pdf %}
+                        <p style="color:var(--text-dim);font-size:0.82rem;padding:0.5rem 0;">No documents found</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- All Extracted Links -->
+                {% if all_links %}
+                <div class="panel">
+                    <div class="panel-header">🔗 All Links ({{ all_links|length }})</div>
+                    <div class="panel-body" style="padding:0.5rem 1rem;">
+                        {% for link in all_links %}
+                        <div class="attachment-item" style="cursor:pointer;" onclick="switchDoc('link-{{ loop.index }}')">
+                            <div class="attachment-icon {% if link.is_relevant %}pdf{% else %}other{% endif %}" style="font-size:0.55rem;">
+                                {% if link.is_relevant %}✓{% else %}?{% endif %}
+                            </div>
+                            <div class="attachment-info">
+                                <div class="attachment-name" title="{{ link.url }}" style="font-size:0.78rem;">
+                                    Link {{ loop.index }}: {{ link.link_type or 'unknown' }}
+                                </div>
+                                <div class="attachment-size">{{ link.url|truncate(50, True) }}</div>
+                            </div>
+                            <span style="color:var(--text-dim);font-size:0.75rem;">View →</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Raw Metadata -->
+                <div class="panel">
+                    <div class="panel-header" style="cursor:pointer;" onclick="document.getElementById('rawDataBody').style.display = document.getElementById('rawDataBody').style.display === 'none' ? 'block' : 'none'">
+                        🗄️ Raw Metadata
+                        <span style="margin-left:auto;color:var(--text-dim);font-size:0.72rem;">toggle ▾</span>
+                    </div>
+                    <div class="panel-body" id="rawDataBody" style="display:none;">
+                        <table style="width:100%;font-size:0.78rem;">
+                            {% for key in ['bid_number', 'document_id', 'items', 'quantity', 'department_address', 'start_date', 'end_date', 'location', 'budget_range', 'eligibility', 'key_dates', 'contact_info', 'scraped_at'] %}
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:0.35rem 0.5rem;color:var(--text-dim);font-weight:500;white-space:nowrap;vertical-align:top;">{{ key }}</td>
+                                <td style="padding:0.35rem 0.5rem;color:var(--text-muted);word-break:break-word;">{{ tender[key] or '—' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">GeM Scraper Dashboard</div>
+
+    <script>
+        function switchDoc(docId) {
+            document.querySelectorAll('.doc-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.doc-panel').forEach(p => p.classList.remove('active'));
+            const tab = document.querySelector(`.doc-tab[data-doc="${docId}"]`);
+            const panel = document.getElementById('panel-' + docId);
+            if (tab) tab.classList.add('active');
+            if (panel) panel.classList.add('active');
+        }
+        document.querySelectorAll('.doc-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchDoc(tab.getAttribute('data-doc')));
+        });
+    </script>
+</body>
+</html>

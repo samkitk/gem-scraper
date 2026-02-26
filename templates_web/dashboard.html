@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeM Scraper Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <span class="logo">💎</span>
+            GeM Scraper
+        </a>
+        <span class="navbar-subtitle">Event / Seminar / Workshop Tenders</span>
+    </nav>
+
+    <div class="container">
+        <!-- Stats Row -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">TOTAL TENDERS</div>
+                <div class="stat-value">{{ stats.total_tenders }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">PROCESSED</div>
+                <div class="stat-value accent">{{ stats.processed }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">UNPROCESSED</div>
+                <div class="stat-value dim">{{ stats.unprocessed }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">TOTAL LINKS</div>
+                <div class="stat-value">{{ stats.total_links }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">RELEVANT LINKS</div>
+                <div class="stat-value green">{{ stats.relevant_links }}</div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-row">
+            <input type="text" id="searchInput" class="search-input"
+                   placeholder="Search by bid number, department, scope, location...">
+            <select id="locationFilter" class="filter-select">
+                <option value="">📍 All Locations</option>
+                {% for loc in locations %}
+                <option value="{{ loc }}">{{ loc }}</option>
+                {% endfor %}
+            </select>
+            <div class="filter-buttons">
+                <button class="btn btn-sm filter-btn active" data-filter="all">All</button>
+                <button class="btn btn-sm filter-btn" data-filter="processed">✅ Processed</button>
+                <button class="btn btn-sm filter-btn" data-filter="unprocessed">⏳ Pending</button>
+            </div>
+        </div>
+
+        <!-- Tenders Table -->
+        <div class="panel">
+            <table class="tender-table">
+                <thead>
+                    <tr>
+                        <th>Bid Number</th>
+                        <th>Department</th>
+                        <th>Scope of Work</th>
+                        <th>Location</th>
+                        <th>Est. Value</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tenderTableBody">
+                    {% for t in tenders %}
+                    <tr class="tender-row {% if t.processed %}processed{% else %}unprocessed{% endif %}"
+                        data-bid="{{ t.folder }}"
+                        data-location="{{ (t.location or '')|lower }}"
+                        data-search="{{ t.bid_number|lower }} {{ (t.department or '')|lower }} {{ (t.scope_of_work or '')|lower }} {{ (t.summary or '')|lower }} {{ (t.location or '')|lower }}">
+                        <td class="bid-no">
+                            <a href="/tender/{{ t.folder }}">{{ t.bid_number }}</a>
+                        </td>
+                        <td class="dept" title="{{ t.department or 'N/A' }}">
+                            {{ t.department or '—' }}
+                        </td>
+                        <td class="scope" title="{{ t.scope_of_work or '' }}">
+                            {{ (t.scope_of_work or '—')[:80] }}{% if t.scope_of_work and t.scope_of_work|length > 80 %}…{% endif %}
+                        </td>
+                        <td class="location">
+                            {{ t.location or '—' }}
+                        </td>
+                        <td class="value">
+                            {% if t.estimated_value and t.estimated_value != 'None' and t.estimated_value != 'null' %}
+                                <span class="money">{{ t.estimated_value }}</span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td class="date">{{ t.end_date or '—' }}</td>
+                        <td>
+                            {% if t.processed %}
+                                <span class="badge badge-green">DONE</span>
+                            {% else %}
+                                <span class="badge badge-amber">PENDING</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">GeM Scraper Dashboard · {{ tenders|length }} tenders loaded</div>
+
+    <script>
+        // ── Filtering ──
+        const searchInput = document.getElementById('searchInput');
+        const locationFilter = document.getElementById('locationFilter');
+        const rows = document.querySelectorAll('.tender-row');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        let activeFilter = 'all';
+
+        function applyFilters() {
+            const query = searchInput.value.toLowerCase().trim();
+            const locQuery = locationFilter.value.toLowerCase().trim();
+
+            rows.forEach(row => {
+                const searchData = row.getAttribute('data-search');
+                const rowLocation = row.getAttribute('data-location');
+                const isProcessed = row.classList.contains('processed');
+
+                let show = true;
+                // Status filter
+                if (activeFilter === 'processed' && !isProcessed) show = false;
+                if (activeFilter === 'unprocessed' && isProcessed) show = false;
+                // Text search
+                if (query && !searchData.includes(query)) show = false;
+                // Location filter
+                if (locQuery && !rowLocation.includes(locQuery)) show = false;
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+
+        searchInput.addEventListener('input', applyFilters);
+        locationFilter.addEventListener('change', applyFilters);
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeFilter = btn.getAttribute('data-filter');
+                applyFilters();
+            });
+        });
+    </script>
+</body>
+</html>
