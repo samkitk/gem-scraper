@@ -68,6 +68,13 @@ def init_db():
             error TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sent_at TEXT NOT NULL,
+            tender_count INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'sent'
+        );
+
         CREATE INDEX IF NOT EXISTS idx_tenders_bid ON tenders(bid_number);
         CREATE INDEX IF NOT EXISTS idx_tenders_processed ON tenders(processed);
         CREATE INDEX IF NOT EXISTS idx_links_tender ON links(tender_id);
