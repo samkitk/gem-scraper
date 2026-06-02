@@ -257,6 +257,11 @@ def api_tender(bid_folder):
     return jsonify({"tender": tender, "links": links})
 
 
+@app.context_processor
+def inject_commit_sha():
+    return dict(commit_sha=config.get_commit_sha())
+
+
 if __name__ == "__main__":
     print("\n🌐 GeM Scraper Dashboard")
     print("   http://localhost:5050\n")

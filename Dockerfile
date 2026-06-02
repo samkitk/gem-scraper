@@ -23,6 +23,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Accept build-time commit SHA
+ARG COMMIT_SHA=unknown
+RUN echo ${COMMIT_SHA} > commit_sha.txt
+
 # Create data dirs
 RUN mkdir -p data/tenders data/pdfs logs
 

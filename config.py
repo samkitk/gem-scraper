@@ -57,3 +57,38 @@ DASHBOARD_URL = os.getenv("DASHBOARD_URL", "https://gem.aumevent.com")
 # ── Logging ──
 LOG_FILE = LOG_DIR / "scraper.log"
 LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+
+
+def get_commit_sha() -> str:
+    """Helper to get the current Git commit SHA (either from environment, build-file, or git command)."""
+    # 1. Environment variable
+    sha = os.getenv("COMMIT_SHA")
+    if sha and sha != "unknown":
+        return sha[:7]
+
+    # 2. Build-time commit_sha.txt file
+    sha_file = BASE_DIR / "commit_sha.txt"
+    if sha_file.exists():
+        try:
+            file_sha = sha_file.read_text(encoding="utf-8").strip()
+            if file_sha and file_sha != "unknown":
+                return file_sha[:7]
+        except Exception:
+            pass
+
+    # 3. Local git repository (for development)
+    try:
+        import subprocess
+        res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
+        return res.stdout.strip()
+    except Exception:
+        pass
+
+    return "unknown"
+
