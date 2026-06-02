@@ -41,7 +41,7 @@ HEADERS = {
 
 # ── Gemini API ──
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.5-flash"
 
 # ── Scraper Settings ──
 SCRAPE_INTERVAL_MINUTES = int(os.getenv("SCRAPE_INTERVAL_MINUTES", "60"))
@@ -52,7 +52,7 @@ REQUEST_DELAY = 2  # seconds between requests to be polite
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 EMAIL_TO = os.getenv("EMAIL_TO", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM", "GeM Scraper <gems@updates.aumevent.com>")
-DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://localhost:5050")
+DASHBOARD_URL = os.getenv("DASHBOARD_URL", "https://gem.aumevent.com")
 
 # ── Logging ──
 LOG_FILE = LOG_DIR / "scraper.log"
