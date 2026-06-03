@@ -76,6 +76,60 @@ def step_process(tender_id: str = None):
     logger.info("STEP 3: Processing tenders (PDF parsing + Gemini summarization)...")
     logger.info("=" * 60)
 
+    # Self-healing: Reset any tenders that failed to process (e.g., due to Gemini API errors)
+    if not tender_id:
+        try:
+            conn = db.get_connection()
+            failed_rows = conn.execute("""
+                SELECT bid_number, folder_path FROM tenders 
+                WHERE processed = 1 AND (
+                    summary LIKE 'Error%' 
+                    OR summary LIKE '%gemini-2.0-flash%' 
+                    OR summary LIKE '%404%'
+                    OR summary IS NULL
+                )
+            """).fetchall()
+            
+            if failed_rows:
+                logger.info(f"Self-healing: Found {len(failed_rows)} failed processed tenders. Resetting them to unprocessed...")
+                for row in failed_rows:
+                    bid_num = row["bid_number"]
+                    folder_path = row["folder_path"]
+                    
+                    conn.execute("""
+                        UPDATE tenders SET
+                            processed = 0,
+                            summary = NULL,
+                            scope_of_work = NULL,
+                            eligibility = NULL,
+                            key_dates = NULL,
+                            budget_range = NULL,
+                            contact_info = NULL,
+                            location = NULL
+                        WHERE bid_number = ?
+                    """, (bid_num,))
+                    
+                    # Clear links
+                    t_id_row = conn.execute("SELECT id FROM tenders WHERE bid_number = ?", (bid_num,)).fetchone()
+                    if t_id_row:
+                        conn.execute("DELETE FROM links WHERE tender_id = ?", (t_id_row["id"],))
+                        
+                    # Clean up generated files
+                    if folder_path:
+                        folder = Path(folder_path)
+                        if folder.exists():
+                            for filename in ["summary.md", "links.json"]:
+                                file_path = folder / filename
+                                if file_path.exists():
+                                    try:
+                                        file_path.unlink()
+                                    except Exception as e:
+                                        logger.warning(f"Failed to delete {file_path}: {e}")
+                conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Failed to run self-healing reset: {e}")
+
     if tender_id:
         tender = db.get_tender_by_bid(tender_id)
         if not tender:
@@ -161,6 +215,14 @@ def step_process(tender_id: str = None):
         # ── Save links to DB ──
         tender_row = db.get_tender_by_bid(bid_num)
         if tender_row:
+            # Clear existing links first to prevent duplicates on reprocessing
+            try:
+                conn = db.get_connection()
+                conn.execute("DELETE FROM links WHERE tender_id = ?", (tender_row["id"],))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                logger.warning(f"Could not clear existing links for {bid_num}: {e}")
             db.insert_links(tender_row["id"], all_links)
 
         # ── Update DB with processing results ──
