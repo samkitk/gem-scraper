@@ -38,7 +38,7 @@
             width: 100%;
             height: 750px;
             border: none;
-            background: #161821;
+            background: #121215;
         }
         .xlsx-preview {
             padding: 1rem;
@@ -51,7 +51,7 @@
             font-size: 0.78rem;
         }
         .xlsx-table th {
-            background: rgba(108, 99, 255, 0.1);
+            background: var(--accent-soft);
             color: var(--accent);
             padding: 0.5rem 0.75rem;
             text-align: left;
@@ -162,6 +162,21 @@
                         </span>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Tracking + Draw Attention -->
+        <div class="track-bar" data-folder="{{ bid_folder }}">
+            <div class="track-status">
+                <span class="track-label">My Status</span>
+                <button class="status-btn applied {% if tender.app_status == 'applied' %}active{% endif %}" data-status="applied" onclick="setDetailStatus('applied')">🟢 Applied</button>
+                <button class="status-btn considering {% if tender.app_status == 'considering' %}active{% endif %}" data-status="considering" onclick="setDetailStatus('considering')">🟡 Considering</button>
+                <button class="status-btn not_applying {% if tender.app_status == 'not_applying' %}active{% endif %}" data-status="not_applying" onclick="setDetailStatus('not_applying')">🔴 Not applying</button>
+                <button class="status-btn clear" data-status="" onclick="setDetailStatus('')" title="Clear status" style="{% if not tender.app_status %}display:none{% endif %}" id="clearStatusBtn">✕</button>
+            </div>
+            <div class="track-attention">
+                <span class="att-note" id="attNote" {% if not tender.attention_sent_at %}style="display:none"{% endif %}>📣 Attention drawn{% if tender.attention_sent_at %} · {{ tender.attention_sent_at[:10] }}{% endif %}</span>
+                <button class="btn btn-primary btn-sm" id="drawBtn" onclick="drawAttention()">📣 Draw Attention</button>
             </div>
         </div>
 
@@ -352,7 +367,78 @@
 
     <div class="footer">GeM Scraper Dashboard · Commit: <span style="font-family: var(--font-mono); opacity: 0.8;">{{ commit_sha }}</span></div>
 
+    <div class="toast" id="toast"></div>
+
     <script>
+        const BID_FOLDER = "{{ bid_folder }}";
+
+        function showToast(msg, kind) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (kind ? ' toast-' + kind : '');
+            setTimeout(() => { t.className = 'toast'; }, 3200);
+        }
+
+        // ── Application status ──
+        function setDetailStatus(status) {
+            fetch(`/api/tender/${BID_FOLDER}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.ok) { showToast('Could not update status', 'error'); return; }
+                document.querySelectorAll('.track-status .status-btn').forEach(b => {
+                    if (b.classList.contains('clear')) return;
+                    b.classList.toggle('active', b.getAttribute('data-status') === status && status !== '');
+                });
+                document.getElementById('clearStatusBtn').style.display = status ? '' : 'none';
+                const labels = { applied: 'Applied', considering: 'Considering', not_applying: 'Not applying', '': 'Unmarked' };
+                showToast('Marked as ' + labels[status], 'ok');
+            })
+            .catch(() => showToast('Could not update status', 'error'));
+        }
+
+        // ── Draw Attention ──
+        function drawAttention() {
+            const btn = document.getElementById('drawBtn');
+            const already = document.getElementById('attNote').style.display !== 'none';
+            if (already && !confirm('You already sent a Draw Attention email for this tender. Send again?')) return;
+            btn.disabled = true;
+            const original = btn.textContent;
+            btn.textContent = 'Sending…';
+            fetch(`/api/tender/${BID_FOLDER}/draw-attention`, { method: 'POST' })
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.ok) { showToast('Email failed: ' + (d.error || 'unknown'), 'error'); return; }
+                    const note = document.getElementById('attNote');
+                    note.textContent = '📣 Attention drawn · ' + (d.sent_at || '').slice(0, 10);
+                    note.style.display = '';
+                    showToast('Draw Attention email sent', 'ok');
+                })
+                .catch(() => showToast('Email failed', 'error'))
+                .finally(() => { btn.disabled = false; btn.textContent = original; });
+        }
+
+        // ── Toast when arriving from an email Yes/No link ──
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const marked = params.get('marked');
+            if (marked) {
+                const labels = { applied: 'Applied', considering: 'Considering', not_applying: 'Not applying' };
+                showToast('✓ Marked as ' + (labels[marked] || marked), 'ok');
+                // Reflect the active button without a reload
+                document.querySelectorAll('.track-status .status-btn').forEach(b => {
+                    if (b.classList.contains('clear')) return;
+                    b.classList.toggle('active', b.getAttribute('data-status') === marked);
+                });
+                const clr = document.getElementById('clearStatusBtn');
+                if (clr) clr.style.display = '';
+                history.replaceState({}, '', window.location.pathname);
+            }
+        })();
+
         function switchDoc(docId) {
             document.querySelectorAll('.doc-tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.doc-panel').forEach(p => p.classList.remove('active'));

@@ -7,16 +7,16 @@
 }
 
 :root {
-    --bg: #0f1117;
-    --bg-card: #1a1d27;
-    --bg-card-hover: #22263a;
-    --bg-input: #161821;
-    --border: #2a2e3f;
-    --text: #e4e6ef;
-    --text-muted: #8b8fa3;
-    --text-dim: #5a5e72;
-    --accent: #6c63ff;
-    --accent-soft: rgba(108, 99, 255, 0.12);
+    --bg: #0d0d0f;
+    --bg-card: #16161a;
+    --bg-card-hover: #1f1f25;
+    --bg-input: #121215;
+    --border: #2a2a31;
+    --text: #ededf0;
+    --text-muted: #9a9aa5;
+    --text-dim: #62626d;
+    --accent: #ef3e46;
+    --accent-soft: rgba(239, 62, 70, 0.12);
     --green: #22c55e;
     --green-soft: rgba(34, 197, 94, 0.12);
     --amber: #f59e0b;
@@ -49,7 +49,7 @@ a {
 }
 
 a:hover {
-    color: #8b85ff;
+    color: #ff6168;
 }
 
 /* ── Top Nav ── */
@@ -79,7 +79,7 @@ a:hover {
 .navbar-brand .logo {
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, var(--accent), #a78bfa);
+    background: linear-gradient(135deg, #ff4d57, #c4161f);
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -256,6 +256,12 @@ td.location {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     overflow: hidden;
+}
+
+/* Dashboard table: scroll horizontally on desktop/tablet when columns overflow */
+.panel.table-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
 }
 
 table {
@@ -631,7 +637,7 @@ td.value-col {
 }
 
 .btn-primary:hover {
-    background: #5a52e0;
+    background: #c8161f;
     color: white;
 }
 
@@ -723,4 +729,333 @@ td.value-col {
 
 .tab-content.active {
     display: block;
+}
+
+/* ── Application Status controls ── */
+.status-select {
+    padding: 0.35rem 0.5rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: var(--font);
+    font-size: 0.78rem;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    max-width: 160px;
+}
+
+.status-select:focus {
+    border-color: var(--accent);
+}
+
+.status-select option {
+    background: var(--bg-card);
+    color: var(--text);
+}
+
+.status-select.status-applied {
+    color: var(--green);
+    border-color: rgba(34, 197, 94, 0.45);
+    background: var(--green-soft);
+}
+
+.status-select.status-considering {
+    color: var(--amber);
+    border-color: rgba(245, 158, 11, 0.45);
+    background: var(--amber-soft);
+}
+
+.status-select.status-not_applying {
+    color: var(--red);
+    border-color: rgba(239, 68, 68, 0.45);
+    background: var(--red-soft);
+}
+
+.status-select.status-saved {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+td.track {
+    white-space: nowrap;
+}
+
+.att-flag {
+    margin-left: 0.35rem;
+    font-size: 0.8rem;
+    cursor: default;
+}
+
+/* ── Detail page: tracking + draw-attention bar ── */
+.track-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.track-status,
+.track-attention {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.track-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-right: 0.25rem;
+}
+
+.status-btn {
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.status-btn:hover {
+    color: var(--text);
+    border-color: var(--text-dim);
+}
+
+.status-btn.clear {
+    padding: 0.4rem 0.6rem;
+    color: var(--text-dim);
+}
+
+.status-btn.applied.active {
+    background: var(--green-soft);
+    border-color: rgba(34, 197, 94, 0.5);
+    color: var(--green);
+}
+
+.status-btn.considering.active {
+    background: var(--amber-soft);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: var(--amber);
+}
+
+.status-btn.not_applying.active {
+    background: var(--red-soft);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: var(--red);
+}
+
+.att-note {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ── Toast ── */
+.toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(150%);
+    padding: 0.7rem 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.toast.toast-ok {
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.toast.toast-error {
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ──────────────────────────────────────────────
+   Responsive — tablets
+   ────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+    .navbar {
+        padding: 0 1.25rem;
+    }
+
+    .container {
+        padding: 1.25rem 1.25rem;
+    }
+}
+
+/* ──────────────────────────────────────────────
+   Responsive — phones
+   ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 0 1rem;
+        height: 56px;
+    }
+
+    .navbar-subtitle {
+        display: none;
+    }
+
+    .navbar-brand {
+        font-size: 1rem;
+    }
+
+    .container {
+        padding: 1rem;
+    }
+
+    /* Stat cards: two-up grid on phones */
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .stat-card {
+        padding: 1rem;
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.5rem;
+    }
+
+    /* Filters stack and go full-width */
+    .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-input,
+    .filter-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .filter-buttons {
+        justify-content: stretch;
+    }
+
+    .filter-buttons .filter-btn {
+        flex: 1;
+        text-align: center;
+    }
+
+    /* ── Dashboard table → stacked cards (scoped to .tender-table only) ── */
+    .tender-table thead {
+        display: none;
+    }
+
+    .tender-table,
+    .tender-table tbody,
+    .tender-table tr,
+    .tender-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .tender-table tr {
+        padding: 0.6rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .tender-table tr:last-child {
+        border-bottom: none;
+    }
+
+    .tender-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        padding: 0.35rem 1rem;
+        border: none;
+        max-width: none !important;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        text-align: right;
+    }
+
+    /* The label, pulled from data-label */
+    .tender-table td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    /* Bid number row reads as the card title */
+    .tender-table td.bid-no {
+        padding-top: 0.6rem;
+        font-size: 0.9rem;
+    }
+
+    .tender-table td.dept,
+    .tender-table td.scope,
+    .tender-table td.location {
+        text-align: right;
+        word-break: break-word;
+    }
+
+    /* ── Detail page ── */
+    .detail-header h1 {
+        font-size: 1.15rem;
+    }
+
+    .detail-meta {
+        gap: 1rem;
+    }
+
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pdf-viewer,
+    .pdf-frame {
+        height: 65vh;
+    }
+
+    .navbar-actions .btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.7rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }

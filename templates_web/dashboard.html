@@ -50,6 +50,13 @@
                 <option value="{{ loc }}">{{ loc }}</option>
                 {% endfor %}
             </select>
+            <select id="statusFilter" class="filter-select">
+                <option value="">🏷️ All Statuses</option>
+                <option value="applied">🟢 Applied</option>
+                <option value="considering">🟡 Considering</option>
+                <option value="not_applying">🔴 Not applying</option>
+                <option value="unmarked">⚪ Unmarked</option>
+            </select>
             <div class="filter-buttons">
                 <button class="btn btn-sm filter-btn active" data-filter="all">All</button>
                 <button class="btn btn-sm filter-btn" data-filter="processed">✅ Processed</button>
@@ -58,7 +65,7 @@
         </div>
 
         <!-- Tenders Table -->
-        <div class="panel">
+        <div class="panel table-scroll">
             <table class="tender-table">
                 <thead>
                     <tr>
@@ -69,6 +76,7 @@
                         <th>Est. Value</th>
                         <th>End Date</th>
                         <th>Status</th>
+                        <th>My Status</th>
                     </tr>
                 </thead>
                 <tbody id="tenderTableBody">
@@ -76,33 +84,44 @@
                     <tr class="tender-row {% if t.processed %}processed{% else %}unprocessed{% endif %}"
                         data-bid="{{ t.folder }}"
                         data-location="{{ (t.location or '')|lower }}"
+                        data-status="{{ t.app_status or '' }}"
                         data-search="{{ t.bid_number|lower }} {{ (t.department or '')|lower }} {{ (t.scope_of_work or '')|lower }} {{ (t.summary or '')|lower }} {{ (t.location or '')|lower }}">
-                        <td class="bid-no">
+                        <td class="bid-no" data-label="Bid Number">
                             <a href="/tender/{{ t.folder }}">{{ t.bid_number }}</a>
                         </td>
-                        <td class="dept" title="{{ t.department or 'N/A' }}">
+                        <td class="dept" data-label="Department" title="{{ t.department or 'N/A' }}">
                             {{ t.department or '—' }}
                         </td>
-                        <td class="scope" title="{{ t.scope_of_work or '' }}">
+                        <td class="scope" data-label="Scope" title="{{ t.scope_of_work or '' }}">
                             {{ (t.scope_of_work or '—')[:80] }}{% if t.scope_of_work and t.scope_of_work|length > 80 %}…{% endif %}
                         </td>
-                        <td class="location">
+                        <td class="location" data-label="Location">
                             {{ t.location or '—' }}
                         </td>
-                        <td class="value">
+                        <td class="value" data-label="Est. Value">
                             {% if t.estimated_value and t.estimated_value != 'None' and t.estimated_value != 'null' %}
                                 <span class="money">{{ t.estimated_value }}</span>
                             {% else %}
                                 —
                             {% endif %}
                         </td>
-                        <td class="date">{{ t.end_date or '—' }}</td>
-                        <td>
+                        <td class="date" data-label="End Date">{{ t.end_date or '—' }}</td>
+                        <td data-label="Status">
                             {% if t.processed %}
                                 <span class="badge badge-green">DONE</span>
                             {% else %}
                                 <span class="badge badge-amber">PENDING</span>
                             {% endif %}
+                        </td>
+                        <td class="track" data-label="My Status" onclick="event.stopPropagation()">
+                            <select class="status-select status-{{ t.app_status or 'none' }}"
+                                    data-folder="{{ t.folder }}" onchange="setStatus(this)">
+                                <option value="" {% if not t.app_status %}selected{% endif %}>⚪ Unmarked</option>
+                                <option value="applied" {% if t.app_status == 'applied' %}selected{% endif %}>🟢 Applied</option>
+                                <option value="considering" {% if t.app_status == 'considering' %}selected{% endif %}>🟡 Considering</option>
+                                <option value="not_applying" {% if t.app_status == 'not_applying' %}selected{% endif %}>🔴 Not applying</option>
+                            </select>
+                            {% if t.attention_sent_at %}<span class="att-flag" title="Attention drawn">📣</span>{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -117,6 +136,7 @@
         // ── Filtering ──
         const searchInput = document.getElementById('searchInput');
         const locationFilter = document.getElementById('locationFilter');
+        const statusFilter = document.getElementById('statusFilter');
         const rows = document.querySelectorAll('.tender-row');
         const filterBtns = document.querySelectorAll('.filter-btn');
         let activeFilter = 'all';
@@ -124,20 +144,25 @@
         function applyFilters() {
             const query = searchInput.value.toLowerCase().trim();
             const locQuery = locationFilter.value.toLowerCase().trim();
+            const statusQuery = statusFilter.value;
 
             rows.forEach(row => {
                 const searchData = row.getAttribute('data-search');
                 const rowLocation = row.getAttribute('data-location');
+                const rowStatus = row.getAttribute('data-status') || '';
                 const isProcessed = row.classList.contains('processed');
 
                 let show = true;
-                // Status filter
+                // Processing filter (All / Processed / Pending buttons)
                 if (activeFilter === 'processed' && !isProcessed) show = false;
                 if (activeFilter === 'unprocessed' && isProcessed) show = false;
                 // Text search
                 if (query && !searchData.includes(query)) show = false;
                 // Location filter
                 if (locQuery && !rowLocation.includes(locQuery)) show = false;
+                // Application status filter
+                if (statusQuery === 'unmarked' && rowStatus !== '') show = false;
+                else if (statusQuery && statusQuery !== 'unmarked' && rowStatus !== statusQuery) show = false;
 
                 row.style.display = show ? '' : 'none';
             });
@@ -145,6 +170,7 @@
 
         searchInput.addEventListener('input', applyFilters);
         locationFilter.addEventListener('change', applyFilters);
+        statusFilter.addEventListener('change', applyFilters);
 
         filterBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -152,6 +178,40 @@
                 btn.classList.add('active');
                 activeFilter = btn.getAttribute('data-filter');
                 applyFilters();
+            });
+        });
+
+        // ── Quick-set application status ──
+        function setStatus(sel) {
+            const folder = sel.getAttribute('data-folder');
+            const status = sel.value;
+            // Recolor the select immediately
+            sel.className = 'status-select status-' + (status || 'none');
+            // Keep the row's filter attribute in sync
+            const row = sel.closest('.tender-row');
+            if (row) row.setAttribute('data-status', status);
+
+            fetch(`/api/tender/${folder}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.ok) { console.error('Status update failed', d); }
+                else { sel.classList.add('status-saved'); setTimeout(() => sel.classList.remove('status-saved'), 600); }
+                applyFilters();
+            })
+            .catch(err => console.error('Status update error', err));
+        }
+        window.setStatus = setStatus;
+
+        // Make rows clickable to open the tender (ignoring the status control)
+        rows.forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('.track') || e.target.tagName === 'A') return;
+                const folder = row.getAttribute('data-bid');
+                if (folder) window.location.href = `/tender/${folder}`;
             });
         });
     </script>
