@@ -80,7 +80,24 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_links_tender ON links(tender_id);
     """)
     conn.commit()
+
+    # ── Migrations: add columns to existing DBs that predate them ──
+    _add_column_if_missing(conn, "tenders", "app_status", "TEXT")
+    _add_column_if_missing(conn, "tenders", "status_updated_at", "TEXT")
+    _add_column_if_missing(conn, "tenders", "attention_sent_at", "TEXT")
+    conn.commit()
     conn.close()
+
+
+# Application-status values the user can set on a tender (empty = Unmarked).
+APP_STATUSES = ("applied", "considering", "not_applying")
+
+
+def _add_column_if_missing(conn, table: str, column: str, col_type: str):
+    """Add a column to a table only if it isn't already present (SQLite-safe migration)."""
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
 
 def tender_exists(bid_number: str) -> bool:
@@ -229,6 +246,35 @@ def get_links_for_tender(tender_id: int, relevant_only: bool = False) -> list[di
     return [dict(r) for r in rows]
 
 
+def set_app_status(bid_number: str, status: str) -> bool:
+    """Set a tender's application status. status must be in APP_STATUSES or '' (Unmarked).
+    Returns True if a row was updated."""
+    if status not in APP_STATUSES and status != "":
+        raise ValueError(f"Invalid status: {status!r}")
+    conn = get_connection()
+    cursor = conn.execute(
+        "UPDATE tenders SET app_status = ?, status_updated_at = ? WHERE bid_number = ?",
+        (status or None, datetime.now().isoformat(), bid_number),
+    )
+    conn.commit()
+    updated = cursor.rowcount > 0
+    conn.close()
+    return updated
+
+
+def set_attention_sent(bid_number: str) -> str:
+    """Record that a Draw Attention email was sent for this tender. Returns the timestamp."""
+    ts = datetime.now().isoformat()
+    conn = get_connection()
+    conn.execute(
+        "UPDATE tenders SET attention_sent_at = ? WHERE bid_number = ?",
+        (ts, bid_number),
+    )
+    conn.commit()
+    conn.close()
+    return ts
+
+
 def log_scrape_run(new_count: int, total_count: int, status: str = "completed", error: str = None):
     """Log a scrape run."""
     conn = get_connection()
@@ -248,6 +294,8 @@ def get_tender_stats() -> dict:
     unprocessed = conn.execute("SELECT COUNT(*) FROM tenders WHERE processed = 0").fetchone()[0]
     total_links = conn.execute("SELECT COUNT(*) FROM links").fetchone()[0]
     relevant_links = conn.execute("SELECT COUNT(*) FROM links WHERE is_relevant = 1").fetchone()[0]
+    applied = conn.execute("SELECT COUNT(*) FROM tenders WHERE app_status = 'applied'").fetchone()[0]
+    considering = conn.execute("SELECT COUNT(*) FROM tenders WHERE app_status = 'considering'").fetchone()[0]
     conn.close()
     return {
         "total_tenders": total,
@@ -255,6 +303,8 @@ def get_tender_stats() -> dict:
         "unprocessed": unprocessed,
         "total_links": total_links,
         "relevant_links": relevant_links,
+        "applied": applied,
+        "considering": considering,
     }
 
 

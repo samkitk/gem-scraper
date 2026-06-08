@@ -206,7 +206,7 @@ def preview_xlsx(bid_folder, filename):
             # Render all sheets
             html = ""
             for sheet_name, headers, data_rows in sheets_html:
-                html += f'<h3 style="color:#a78bfa;margin:1rem 0 0.5rem;font-size:0.9rem;">Sheet: {sheet_name}</h3>'
+                html += f'<h3 style="color:#ef3e46;margin:1rem 0 0.5rem;font-size:0.9rem;">Sheet: {sheet_name}</h3>'
                 html += '<div style="overflow-x:auto;"><table class="xlsx-table"><thead><tr>'
                 for h in headers:
                     html += f"<th>{h}</th>"
@@ -234,6 +234,46 @@ def preview_xlsx(bid_folder, filename):
 
     except Exception as e:
         return f'<p style="color:#ef4444;">Failed to preview: {str(e)}</p>'
+
+
+@app.route("/api/tender/<bid_folder>/status", methods=["POST"])
+def set_status(bid_folder):
+    """Set a tender's application status (used by dashboard quick-set + detail buttons)."""
+    bid_number = folder_to_bid(bid_folder)
+    status = (request.json or {}).get("status", "")
+    if status not in db.APP_STATUSES and status != "":
+        return jsonify({"ok": False, "error": "invalid status"}), 400
+    if not db.set_app_status(bid_number, status):
+        abort(404)
+    return jsonify({"ok": True, "status": status})
+
+
+@app.route("/tender/<bid_folder>/mark/<status>")
+def mark_status(bid_folder, status):
+    """Set status from an email Yes/No link, then redirect to the tender with a toast.
+    GET is intentional: links live in email. Cloudflare Access auth gates these,
+    so unauthenticated link-prefetch cannot trigger them."""
+    bid_number = folder_to_bid(bid_folder)
+    if status not in db.APP_STATUSES:
+        abort(404)
+    if not db.set_app_status(bid_number, status):
+        abort(404)
+    return redirect(url_for("tender_detail", bid_folder=bid_folder, marked=status))
+
+
+@app.route("/api/tender/<bid_folder>/draw-attention", methods=["POST"])
+def draw_attention(bid_folder):
+    """Send a Draw Attention email for this tender and record the timestamp."""
+    from attention_email import send_attention_email
+    bid_number = folder_to_bid(bid_folder)
+    tender = db.get_tender_by_bid(bid_number)
+    if not tender:
+        abort(404)
+    ok, message = send_attention_email(tender)
+    if not ok:
+        return jsonify({"ok": False, "error": message}), 502
+    sent_at = db.set_attention_sent(bid_number)
+    return jsonify({"ok": True, "sent_at": sent_at})
 
 
 @app.route("/api/stats")
