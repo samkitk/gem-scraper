@@ -24,10 +24,13 @@ GEM_BASE_URL = "https://bidplus.gem.gov.in"
 GEM_SEARCH_URL = f"{GEM_BASE_URL}/advance-search"
 GEM_BID_DOC_URL = f"{GEM_BASE_URL}/showbidDocument"
 
-# Category values for Event/Seminar/Workshop
-CATEGORY_VALUES = [
-    "services_home_ev80610203_even",  # Event Or Seminar Or Workshop Or Exhibition Or Expo Management Service
-]
+# Categories to scrape: GeM dropdown option value -> human-readable label.
+# The label is stored on each tender so the dashboard shows the correct category.
+CATEGORY_VALUES = {
+    "services_home_ev80610203_even": "Event Or Seminar Or Workshop Or Exhibition Or Expo Management Service",
+    "services_home_tent": "Tentage Service - Pole Tents",
+    "services_home_te45240781": "Tentage Service Lumpsum Based",
+}
 
 # HTTP headers to mimic a real browser
 HEADERS = {

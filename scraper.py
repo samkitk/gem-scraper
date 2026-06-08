@@ -29,6 +29,8 @@ class GemScraper:
     def __init__(self, headless: bool = True):
         self.headless = headless
         self.driver = None
+        # Label of the category currently being scraped; tagged onto each tender.
+        self.current_category_label = ""
 
     def _init_driver(self):
         """Initialize Chrome WebDriver."""
@@ -234,7 +236,7 @@ class GemScraper:
                 if value_match:
                     tender["estimated_value"] = value_match.group(1).strip()
 
-            tender["category"] = "Event Or Seminar Or Workshop"
+            tender["category"] = self.current_category_label or "Event Or Seminar Or Workshop"
             return tender
 
         except Exception as e:
@@ -323,8 +325,9 @@ class GemScraper:
         try:
             self._init_driver()
 
-            for category in config.CATEGORY_VALUES:
-                logger.info(f"Scraping category: {category}")
+            for category, category_label in config.CATEGORY_VALUES.items():
+                logger.info(f"Scraping category: {category_label} ({category})")
+                self.current_category_label = category_label
 
                 try:
                     self._search_category(category)
